@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# ── Segurança: NUNCA commitar credenciais ─────────────────────────────
+.env
+.env.*
+!.env.example
+
+# Configurações locais de Spring Boot (contém senhas de BD local)
+application-local.yml
+application-local.properties
+src/main/resources/application-local*.yml
+
+# Volumes e dados persistidos do Docker (não são código)
+docker/data/
+postgres-data/

@@ -11,6 +11,7 @@ Sistema tático de simulação e gerenciamento de missões no universo **Warhamm
 | Fase | Descrição | Status |
 |------|-----------|--------|
 | **Fase 1** | Fundação: Domínio de Missões, OpenAPI, Migração de BD | ✅ Concluída |
+| **Fase 1.5** | Infraestrutura: Docker, Perfis de Ambiente, Segurança de Credenciais | ✅ Concluída |
 | **Fase 2** | Segurança: JWT, RBAC, ROLE_PRIMARCA | 🔄 Em andamento |
 | **Fase 3** | Hierarquia Militar: Patentes, Capítulos, Space Marines | ⏳ Planejada |
 | **Fase 4** | Motor de Batalha: Strategy + Factory + Observer | ⏳ Planejada |
@@ -53,8 +54,9 @@ O projeto segue **Clean Architecture**, garantindo que o núcleo de regras do jo
 | Spring Boot | 4.0.3 | Framework principal |
 | Spring Security | (Boot managed) | Autenticação e Autorização (RBAC) |
 | Spring Data JPA | (Boot managed) | Persistência |
-| PostgreSQL | 16+ | Banco de dados principal |
-| Flyway | (Boot managed) | Migrations de banco |
+| **PostgreSQL 16-alpine** | Docker | Banco de dados containerizado |
+| **Docker Compose** | Latest | Orquestração do ambiente de dev |
+| Flyway | (Boot managed) | Migrations de banco versionadas |
 | springdoc-openapi | 2.8.9 | Documentação e teste da API |
 | Lombok | (Boot managed) | Redução de boilerplate |
 | JWT (fase 2) | A definir | Tokens de autenticação stateless |
@@ -67,38 +69,60 @@ O projeto segue **Clean Architecture**, garantindo que o núcleo de regras do jo
 
 - Java 21+
 - Maven 3.9+
-- PostgreSQL 16+ rodando localmente
+- **Docker Desktop** (PostgreSQL roda em container — não instale localmente)
 
-### 1. Configurar o Banco de Dados
+### 1. Configurar as Credenciais
 
-```sql
-CREATE DATABASE cogitator_imperialis;
-CREATE USER cogitator WITH ENCRYPTED PASSWORD 'omnissiah';
-GRANT ALL PRIVILEGES ON DATABASE cogitator_imperialis TO cogitator;
+```powershell
+# Copia o template de variáveis de ambiente
+copy .env.example .env
+
+# Edite o .env com suas credenciais (nunca commite este arquivo!)
+notepad .env
 ```
 
-### 2. Configurar Variáveis de Ambiente
+### 2. Subir o Banco de Dados (Docker)
 
-Copie o arquivo de exemplo e preencha com suas credenciais:
+```powershell
+# Sobe o PostgreSQL em background
+docker compose up -d
 
-```bash
-# No Windows (PowerShell):
-copy src\main\resources\application-local.yml.example src\main\resources\application-local.yml
-# Edite o arquivo com suas credenciais do PostgreSQL
+# Verifica se o container está saudável
+docker compose ps
+
+# Acompanha os logs do banco (opcional)
+docker compose logs -f postgres
 ```
 
-### 3. Executar a Aplicação
+> O banco estará disponível em `localhost:5433` (porta não-padrão para evitar conflitos).
 
-```bash
-./mvnw spring-boot:run
+### 3. Executar a Aplicação com o Perfil de Dev
+
+```powershell
+# O perfil é lido automaticamente do .env (SPRING_PROFILES_ACTIVE=Primarca_Ferreira)
+.\mvnw spring-boot:run
+```
+
+Ou explicitamente:
+
+```powershell
+.\mvnw spring-boot:run "-Dspring-boot.run.profiles=Primarca_Ferreira"
 ```
 
 ### 4. Acessar o Swagger UI
 
-Após iniciar, acesse a documentação interativa da API:
-
 ```
 http://localhost:8080/swagger-ui/index.html
+```
+
+### 5. Parar o ambiente
+
+```powershell
+# Para o container (dados preservados no volume)
+docker compose down
+
+# Para E APAGA todos os dados (resetar o banco)
+docker compose down -v
 ```
 
 ---
@@ -160,7 +184,46 @@ src/main/java/dev/JavaWarhammer/CadastroSoldadosWarhammer/
 
 ---
 
-## 🔒 Segurança (Fase 2 — Em Breve)
+## 🐳 Infraestrutura Docker
+
+O PostgreSQL roda **exclusivamente em container**, nunca diretamente no host.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Host (Windows)                                     │
+│                                                     │
+│  Spring Boot :8080 ──► localhost:5433               │
+│                               │                     │
+│         ┌─────────────────────▼─────────────────┐  │
+│         │  Docker Network: cogitator_net         │  │
+│         │                                       │  │
+│         │  PostgreSQL 16-alpine :5432           │  │
+│         │  Volume: cogitator_pgdata (persistido) │  │
+│         └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Perfis de Ambiente
+
+| Perfil | Arquivo | Uso |
+|--------|---------|-----|
+| `Primarca_Ferreira` | `application-Primarca_Ferreira.yml` | Dev local do Ferreira — Docker na porta 5433 |
+| `prod` *(futuro)* | `application-prod.yml` | Produção — credenciais via secrets do servidor |
+| `test` *(futuro)* | `application-test.yml` | Testes CI — H2 em memória |
+
+### Segurança de Credenciais
+
+Nenhuma senha existe em código ou no repositório:
+
+```
+.env.example  → ✅ commitado (template sem credenciais reais)
+.env          → ❌ ignorado pelo Git (credenciais reais ficam aqui)
+application-Primarca_Ferreira.yml → ✅ commitado (lê vars de ${ENV_VAR})
+```
+
+---
+
+## 🔒 Segurança RBAC (Fase 2 — Em Breve)
 
 O sistema usará **RBAC** (Role-Based Access Control) com JWT stateless.
 
@@ -174,6 +237,24 @@ O sistema usará **RBAC** (Role-Based Access Control) com JWT stateless.
 ---
 
 ## 📄 Changelog
+
+### [Fase 1.5 — Docker, Perfis e Segurança de Infraestrutura] — 2026-06-19
+
+#### ✅ Adicionado
+- `docker-compose.yml` — PostgreSQL 16-alpine containerizado com healthcheck, rede isolada e limite de recursos
+- `.env.example` — template de variáveis de ambiente (seguro para commitar)
+- `docker/init/01_create_extensions.sql` — extensões PostgreSQL pré-Flyway (`pgcrypto`, `unaccent`)
+- `application-Primarca_Ferreira.yml` — perfil de dev local com HikariCP configurado e datasource no Docker
+- `application.yml` refatorado como base limpa (sem credenciais, sem config de ambiente)
+
+#### 🔧 Corrigido (CR-21 a CR-24)
+- CR-21: Credenciais com default em texto plano removidas do `application.yml` base
+- CR-22: Separação de perfis implementada (`application-{profile}.yml`)
+- CR-23: `.gitignore` atualizado para proteger `.env`, `application-local*` e dados do Docker
+- CR-24: `show-sql: true` movido exclusivamente para o perfil de dev
+
+#### 🗑️ Removido
+- `.env` da raiz do projeto (listado no `.gitignore` — nunca vai ao repositório)
 
 ### [Fase 1 — Poda e Use Cases] — 2026-06-19
 

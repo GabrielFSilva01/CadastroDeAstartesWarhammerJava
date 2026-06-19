@@ -1,0 +1,92 @@
+# ============================================================
+# application-Primarca_Ferreira.yml
+# Perfil de desenvolvimento local — Primarca Ferreira
+# ============================================================
+#
+# ATIVAÇÃO:
+#   Defina no seu .env:  SPRING_PROFILES_ACTIVE=Primarca_Ferreira
+#   Ou na IDE:           spring.profiles.active=Primarca_Ferreira
+#
+# SEGURANÇA:
+#   Este arquivo NÃO contém credenciais reais.
+#   Todas as senhas são lidas das variáveis de ambiente do .env,
+#   que está listado no .gitignore e nunca vai para o Git.
+#
+# BANCO DE DADOS:
+#   Conecta ao container Docker iniciado com: docker compose up -d
+#   Porta: 5433 (não-padrão, evita conflito com PostgreSQL local)
+# ============================================================
+
+spring:
+
+  # ── Datasource — aponta para o container Docker ─────────────────────
+  datasource:
+    # Porta 5433 = mapeamento do docker-compose.yml (host:5433 → container:5432)
+    url:                 jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:cogitator_imperialis}
+    driver-class-name:   org.postgresql.Driver
+    username:            ${DB_USERNAME}
+    password:            ${DB_PASSWORD}
+
+    # HikariCP — pool de conexões otimizado para desenvolvimento
+    hikari:
+      pool-name:            HikariPool-Primarca_Ferreira
+      minimum-idle:         2      # Mínimo de conexões abertas em repouso
+      maximum-pool-size:    10     # Máximo de conexões simultâneas
+      idle-timeout:         30000  # 30s antes de fechar uma conexão ociosa
+      connection-timeout:   20000  # 20s de timeout ao tentar conectar
+      # Validação de conexão: evita usar conexões mortas após reinicio do container
+      connection-test-query: SELECT 1
+
+  # ── JPA — configurações específicas de dev ──────────────────────────
+  jpa:
+    # show-sql: true APENAS em dev — vaza dados de parâmetros em produção
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true   # Imprime SQL formatado e legível no console
+
+  # ── Flyway — comportamento em dev ───────────────────────────────────
+  flyway:
+    # Ativa log detalhado das migrations no console (somente em dev)
+    out-of-order: false     # Rejeita migrations fora de ordem (disciplina de versionamento)
+    clean-disabled: true    # Proíbe 'flyway:clean' mesmo em dev — evita perda acidental de dados
+
+  # ── Security — temporário em dev ────────────────────────────────────
+  # Na Fase 2, este bloco será substituído pela configuração JWT real.
+  # Por enquanto, desativa o formulário de login padrão do Spring Security
+  # para que o Swagger UI seja acessível sem autenticação em dev.
+  security:
+    user:
+      name:     ${DB_USERNAME:cogitator}   # Reutiliza credencial do banco como placeholder
+      password: ${DB_PASSWORD:placeholder} # Substituído pelo JWT na Fase 2
+
+# ── Swagger UI — habilitado completamente em dev ─────────────────────
+springdoc:
+  swagger-ui:
+    # Habilita o "Authorize" com Bearer JWT no Swagger
+    try-it-out-enabled:  true
+    # Pré-expande os modelos de requisição (facilita testes manuais)
+    default-models-expand-depth: 2
+
+# ── Logging — nível DEBUG para o código do projeto ───────────────────
+logging:
+  level:
+    # Código do Cogitator Imperialis: tudo em DEBUG
+    dev.JavaWarhammer:             DEBUG
+    # Spring Security: DEBUG temporário para ver o fluxo de autenticação
+    # REDUZIR para WARN na Fase 2 após configurar JWT
+    org.springframework.security:  DEBUG
+    # Flyway: INFO para ver qual migration está sendo executada
+    org.flywaydb:                  INFO
+    # HikariCP: WARN para não poluir o console com eventos de pool
+    com.zaxxer.hikari:             WARN
+    # SQL params: DEBUG mostra os valores reais dos parâmetros nas queries
+    org.hibernate.orm.jdbc.bind:   TRACE
+
+# ── Configurações de Servidor ────────────────────────────────────────
+server:
+  port: 8080
+  error:
+    # Em dev, mostra a stack trace completa no response de erro
+    include-stacktrace: always
+    include-message:    always

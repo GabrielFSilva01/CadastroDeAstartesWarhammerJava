@@ -1,0 +1,98 @@
+# ============================================================
+# docker-compose.yml — Cogitator Imperialis
+# Orquestração do ambiente de desenvolvimento
+# ============================================================
+#
+# USO:
+#   Subir:   docker compose up -d
+#   Parar:   docker compose down
+#   Logs:    docker compose logs -f postgres
+#   Resetar: docker compose down -v  (APAGA os dados!)
+#
+# Credenciais: definidas em .env (nunca neste arquivo)
+# ============================================================
+
+services:
+
+  # ── Banco de Dados PostgreSQL ────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine          # Alpine = imagem mínima (~80MB vs ~400MB full)
+    container_name: cogitator_postgres
+    restart: unless-stopped            # Reinicia automaticamente, exceto parada manual
+
+    environment:
+      # Lidas do arquivo .env — credenciais nunca em texto plano aqui
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Segurança extra: força autenticação por senha (rejeita conexões sem senha)
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+
+    ports:
+      # Porta 5433 no host → 5432 no container
+      # Motivo: evita conflito se PostgreSQL local estiver rodando na 5432 padrão.
+      # O Spring Boot se conecta em localhost:5433
+      - "${DB_PORT:-5433}:5432"
+
+    volumes:
+      # Volume nomeado para persistência dos dados entre restarts do container
+      - cogitator_pgdata:/var/lib/postgresql/data
+
+      # Script de inicialização executado APENAS na primeira vez que o volume é criado
+      # (quando o diretório /var/lib/postgresql/data está vazio)
+      - ./docker/init:/docker-entrypoint-initdb.d:ro   # :ro = read-only dentro do container
+
+    healthcheck:
+      # Verifica se o PostgreSQL está pronto para aceitar conexões
+      # Importante: o Spring Boot só deve subir DEPOIS que este check passar
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s      # Verifica a cada 10 segundos
+      timeout:  5s       # Falha se não responder em 5 segundos
+      retries:  5        # Tenta 5 vezes antes de marcar como unhealthy
+      start_period: 30s  # Aguarda 30s antes de começar os checks (tempo de boot)
+
+    networks:
+      - cogitator_net
+
+    # Limite de recursos: previne que o container consuma toda a RAM/CPU do host
+    deploy:
+      resources:
+        limits:
+          cpus:   '1.0'
+          memory: '512M'
+        reservations:
+          memory: '128M'
+
+  # ── PgAdmin (Opcional — Interface visual para o banco) ───────────────
+  # Descomente para habilitar o painel web em http://localhost:5050
+  #
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: cogitator_pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL:    admin@imperium.terra
+  #     PGADMIN_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD}
+  #     PGADMIN_LISTEN_PORT:      5050
+  #   ports:
+  #     - "5050:5050"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - cogitator_net
+
+# ── Volumes Nomeados ─────────────────────────────────────────────────
+volumes:
+  cogitator_pgdata:
+    # Volume gerenciado pelo Docker — fica em /var/lib/docker/volumes/
+    # NÃO é um diretório no seu projeto (não aparece no Git)
+    driver: local
+
+# ── Rede Isolada ─────────────────────────────────────────────────────
+networks:
+  cogitator_net:
+    # Rede bridge isolada: apenas containers nesta rede se comunicam entre si.
+    # O PostgreSQL NÃO é acessível por outros containers fora desta rede.
+    driver: bridge
