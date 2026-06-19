@@ -1,24 +1,41 @@
-
-
 spring:
   datasource:
-    url: jdbc:h2:mem:Astarte
-    driver-class-name: org.h2.Driver
-    username: Ferreira
-    password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    url: jdbc:postgresql://localhost:5432/cogitator_imperialis
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:cogitator}
+    password: ${DB_PASSWORD:omnissiah}
+
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      # 'validate' — Flyway gerencia o schema. Hibernate apenas valida.
+      # NUNCA use 'create' ou 'update' em produção.
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+        default_schema: public
 
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
 
+# ── Swagger UI ────────────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true      # Habilita o botão "Try it out" para todos os endpoints
+    operations-sorter: method     # Ordena por método HTTP (GET, POST, PUT, DELETE)
+    tags-sorter: alpha            # Ordena tags alfabeticamente
+  api-docs:
+    path: /v3/api-docs
+
+# ── Logging ──────────────────────────────────────────────────────────
+logging:
+  level:
+    dev.JavaWarhammer: DEBUG
+    org.springframework.security: DEBUG    # Temporário — reduzir para INFO em produção
+    org.flywaydb: INFO

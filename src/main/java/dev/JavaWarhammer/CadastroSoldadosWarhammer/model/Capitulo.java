@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.util.Objects;
 
 @Entity
-@Table(name = "Capitulos_table ")
+@Table(name = "tb_capitulos") // fix CR-05: espaço e nome não-padronizado removidos
 public class Capitulo {
 
     @Id
