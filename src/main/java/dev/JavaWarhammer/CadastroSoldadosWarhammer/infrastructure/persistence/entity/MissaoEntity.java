@@ -76,7 +76,7 @@ public class MissaoEntity {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
-    protected MissaoEntity() {}
+    public MissaoEntity() {}
 
     // ── Hooks JPA ─────────────────────────────────────────────────────
 

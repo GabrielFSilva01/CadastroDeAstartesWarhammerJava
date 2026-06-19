@@ -175,6 +175,23 @@ O sistema usará **RBAC** (Role-Based Access Control) com JWT stateless.
 
 ## 📄 Changelog
 
+### [Fase 1 — Poda e Use Cases] — 2026-06-19
+
+#### ✅ Adicionado
+- `CriarMissaoUseCaseImpl` — implementação do use case de criação de missão
+- `BuscarMissaoUseCaseImpl` — implementação com paginação e filtros JPQL
+- `V3__remove_dead_columns_from_capitulos.sql` — migration que remove contadores corruptos do schema
+
+#### 🗑️ Removido (Dead Code — Code Review Pós-Commit)
+- `controller/CapituloController.java` e `SoldadoController.java` (CRUD sem DTO, sem Use Case)
+- `service/CapituloService.java` e `SoldadoService.java` (serviços anêmicos sem abstração)
+- `repository/CapituloRepository.java` e `SoldadoRepository.java` (queries sobre dados corruptos)
+- `model/Acessorio.java` (entidade sem use case, sem controller — dead code completo)
+
+#### 🔧 Refatorado
+- `model/Capitulo.java` — campos `quantidadeMissoes` e `numeroSoldados` removidos (dados deriváveis)
+- `infrastructure/persistence/entity/MissaoEntity.java` — construtor `protected` → `public`
+
 ### [Fase 1] — 2026-06-19
 
 #### ✅ Adicionado

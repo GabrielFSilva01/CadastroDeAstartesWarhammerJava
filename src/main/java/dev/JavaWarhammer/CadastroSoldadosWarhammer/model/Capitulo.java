@@ -3,8 +3,19 @@ package dev.JavaWarhammer.CadastroSoldadosWarhammer.model;
 import jakarta.persistence.*;
 import java.util.Objects;
 
+/**
+ * Entidade JPA de Capítulo Space Marine.
+ *
+ * NOTA ARQUITETURAL: Esta classe será migrada para
+ * infrastructure/persistence/entity/ na Fase 3, junto com a modelagem completa
+ * do Primarca e da hierarquia de Patentes.
+ *
+ * CAMPOS REMOVIDOS (dead data — Fase 1 Code Review):
+ *   - quantidadeMissoes: derivável de MissaoRepository.findByCapituloId().size()
+ *   - numeroSoldados:    derivável de SoldadoRepository.countByCapituloId()
+ */
 @Entity
-@Table(name = "tb_capitulos") // fix CR-05: espaço e nome não-padronizado removidos
+@Table(name = "tb_capitulos")
 public class Capitulo {
 
     @Id
@@ -14,36 +25,25 @@ public class Capitulo {
     @Column(nullable = false, length = 100)
     private String nome;
 
+    @Column(length = 500)
     private String descricao;
 
+    @Column(length = 200)
     private String localidade;
-
-    private int quantidadeMissoes;
-
-    private int numeroSoldados;
-
 
     public Capitulo() {}
 
+    public Long   getId()        { return id; }
+    public void   setId(Long id) { this.id = id; }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public String getNome()               { return nome; }
+    public void   setNome(String nome)    { this.nome = nome; }
 
-    public String getNome() { return nome; }
-    public void setNome(String nome) { this.nome = nome; }
+    public String getDescricao()                    { return descricao; }
+    public void   setDescricao(String descricao)    { this.descricao = descricao; }
 
-    public String getDescricao() { return descricao; }
-    public void setDescricao(String descricao) { this.descricao = descricao; }
-
-    public String getLocalidade() { return localidade; }
-    public void setLocalidade(String localidade) { this.localidade = localidade; }
-
-    public int getQuantidadeMissoes() { return quantidadeMissoes; }
-    public void setQuantidadeMissoes(int quantidadeMissoes) { this.quantidadeMissoes = quantidadeMissoes; }
-
-    public int getNumeroSoldados() { return numeroSoldados; }
-    public void setNumeroSoldados(int numeroSoldados) { this.numeroSoldados = numeroSoldados; }
-
+    public String getLocalidade()                   { return localidade; }
+    public void   setLocalidade(String localidade)  { this.localidade = localidade; }
 
     @Override
     public boolean equals(Object o) {
